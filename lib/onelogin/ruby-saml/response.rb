@@ -115,14 +115,20 @@ module Onelogin
       end
 
       def validate_structure(soft = true)
-        Dir.chdir(File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'schemas'))) do
-          @schema = Nokogiri::XML::Schema(IO.read('saml20protocol_schema.xsd'))
+        if RbConfig::CONFIG["RUBY_INSTALL_NAME"] =~ /jruby/
+          # Nokogiri errors under JRuby when validating the SAML schema.
+          # See issue at https://github.com/sparklemotion/nokogiri/issues/862
           @xml = Nokogiri::XML(self.document.to_s)
-        end
-        if soft
-          @schema.validate(@xml).map{ return false }
         else
-          @schema.validate(@xml).map{ |error| validation_error("#{error.message}\n\n#{@xml.to_s}") }
+          Dir.chdir(File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'schemas'))) do
+            @schema = Nokogiri::XML::Schema(IO.read('saml20protocol_schema.xsd'))
+            @xml = Nokogiri::XML(self.document.to_s)
+          end
+          if soft
+            @schema.validate(@xml).map{ return false }
+          else
+            @schema.validate(@xml).map{ |error| validation_error("#{error.message}\n\n#{@xml.to_s}") }
+          end
         end
       end
 
