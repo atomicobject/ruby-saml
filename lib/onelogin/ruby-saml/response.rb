@@ -115,7 +115,7 @@ module Onelogin
       end
 
       def validate_structure(soft = true)
-        if RbConfig::CONFIG["RUBY_INSTALL_NAME"] =~ /jruby/
+        if Nokogiri.jruby?
           # Nokogiri errors under JRuby when validating the SAML schema.
           # See issue at https://github.com/sparklemotion/nokogiri/issues/862
           @xml = Nokogiri::XML(self.document.to_s)

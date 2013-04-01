@@ -88,21 +88,25 @@ module XMLSecurity
       canon_string = noko_signed_info_element.canonicalize(canon_algorithm)
       noko_sig_element.remove
 
-      # check digests
-      REXML::XPath.each(@sig_element, "//ds:Reference", {"ds"=>DSIG}) do |ref|
-        uri                           = ref.attributes.get_attribute("URI").value
+      if Nokogiri.jruby?
+        warn "Skipping digest check because canonicalization in Nokogiri does not support it properly support under JRuby" if Nokogiri.jruby?
+      else
+        # check digests
+        REXML::XPath.each(@sig_element, "//ds:Reference", {"ds"=>DSIG}) do |ref|
+          uri                           = ref.attributes.get_attribute("URI").value
 
-        hashed_element                = document.at_xpath("//*[@ID='#{uri[1..-1]}']")
-        canon_algorithm               = canon_algorithm REXML::XPath.first(ref, '//ds:CanonicalizationMethod', 'ds' => DSIG)
-        canon_hashed_element          = hashed_element.canonicalize(canon_algorithm, inclusive_namespaces).gsub('&','&amp;')
+          hashed_element                = document.at_xpath("//*[@ID='#{uri[1..-1]}']")
+          canon_algorithm               = canon_algorithm REXML::XPath.first(ref, '//ds:CanonicalizationMethod', 'ds' => DSIG)
+          canon_hashed_element          = hashed_element.canonicalize(canon_algorithm, inclusive_namespaces).gsub('&','&amp;')
 
-        digest_algorithm              = algorithm(REXML::XPath.first(ref, "//ds:DigestMethod"))
+          digest_algorithm              = algorithm(REXML::XPath.first(ref, "//ds:DigestMethod"))
 
-        hash                          = digest_algorithm.digest(canon_hashed_element)
-        digest_value                  = Base64.decode64(REXML::XPath.first(ref, "//ds:DigestValue", {"ds"=>DSIG}).text)
+          hash                          = digest_algorithm.digest(canon_hashed_element)
+          digest_value                  = Base64.decode64(REXML::XPath.first(ref, "//ds:DigestValue", {"ds"=>DSIG}).text)
 
-        unless digests_match?(hash, digest_value)
-          return soft ? false : (raise Onelogin::Saml::ValidationError.new("Digest mismatch"))
+          unless digests_match?(hash, digest_value)
+            return soft ? false : (raise Onelogin::Saml::ValidationError.new("Digest mismatch"))
+          end
         end
       end
 
