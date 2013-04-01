@@ -90,23 +90,24 @@ module XMLSecurity
 
       if Nokogiri.jruby?
         warn "Skipping digest check because canonicalization in Nokogiri does not support it properly support under JRuby" if Nokogiri.jruby?
-      else
-        # check digests
-        REXML::XPath.each(@sig_element, "//ds:Reference", {"ds"=>DSIG}) do |ref|
-          uri                           = ref.attributes.get_attribute("URI").value
+        return true
+      end
 
-          hashed_element                = document.at_xpath("//*[@ID='#{uri[1..-1]}']")
-          canon_algorithm               = canon_algorithm REXML::XPath.first(ref, '//ds:CanonicalizationMethod', 'ds' => DSIG)
-          canon_hashed_element          = hashed_element.canonicalize(canon_algorithm, inclusive_namespaces).gsub('&','&amp;')
+      # check digests
+      REXML::XPath.each(@sig_element, "//ds:Reference", {"ds"=>DSIG}) do |ref|
+        uri                           = ref.attributes.get_attribute("URI").value
 
-          digest_algorithm              = algorithm(REXML::XPath.first(ref, "//ds:DigestMethod"))
+        hashed_element                = document.at_xpath("//*[@ID='#{uri[1..-1]}']")
+        canon_algorithm               = canon_algorithm REXML::XPath.first(ref, '//ds:CanonicalizationMethod', 'ds' => DSIG)
+        canon_hashed_element          = hashed_element.canonicalize(canon_algorithm, inclusive_namespaces).gsub('&','&amp;')
 
-          hash                          = digest_algorithm.digest(canon_hashed_element)
-          digest_value                  = Base64.decode64(REXML::XPath.first(ref, "//ds:DigestValue", {"ds"=>DSIG}).text)
+        digest_algorithm              = algorithm(REXML::XPath.first(ref, "//ds:DigestMethod"))
 
-          unless digests_match?(hash, digest_value)
-            return soft ? false : (raise Onelogin::Saml::ValidationError.new("Digest mismatch"))
-          end
+        hash                          = digest_algorithm.digest(canon_hashed_element)
+        digest_value                  = Base64.decode64(REXML::XPath.first(ref, "//ds:DigestValue", {"ds"=>DSIG}).text)
+
+        unless digests_match?(hash, digest_value)
+          return soft ? false : (raise Onelogin::Saml::ValidationError.new("Digest mismatch"))
         end
       end
 
